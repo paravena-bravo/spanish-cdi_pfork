@@ -55,9 +55,57 @@ ggplot(sp_ws, aes(x = age, y = production)) +
   geom_smooth() + 
   facet_wrap(~language)
 ```
+
 # Comparison on the intersection of items
 
-Controling for demographics
+QUESTION: Do the sumscores across the intersecting items look the same at the population level (correcting for demographics)?
+
+```{r}
+langs <- c("Spanish (European)", "Spanish (Mexican)", "Spanish (Peruvian)", "Spanish (Argentinian)")
+
+d_ws <- map_df(langs, function(x) get_instrument_data(language = x, 
+                                                      form = "WS", 
+                                                      administration_info = TRUE, 
+                                                      item_info = TRUE))
+```
+
+Find the overlapping unilemmas.
+
+For now, pull those unilemmas that are: 
+1) in all languages, 
+2) only once in each language. 
+
+```{r}
+items <- map_df(langs, function(x) get_item_data(language = x, form = "WS"))
+
+intersection <- items |>
+  group_by(uni_lemma) |>
+  summarise(n_langs = length(unique(language)), 
+            n = n()) |>
+  filter(n_langs == 4, n == 4) |>
+  pull(uni_lemma)
+# 224 common items
+``` 
+
+Filter data and replot. 
+
+```{r}
+ms_ws <- d_ws |>
+  filter(uni_lemma %in% intersection) |>
+  group_by(child_id, language, age) |>
+  summarise(produces = sum(produces))
+
+ggplot(ms_ws, aes(x = age, y = produces)) + 
+  geom_jitter(width = .2, alpha = .2) + 
+  geom_smooth() + 
+  facet_wrap(~language)
+```
+
+
+
+
+# Comparison on the intersection of items
+Controlling for demographics
 
 ```{r}
 summary(sp_ws)
@@ -68,7 +116,7 @@ summary(mx_ws)
 # Hoff and Marchman has no data for production 
 # 536 missing data points
 
-# Itendify the rows with missing data
+# Identify the rows with missing data
 which(is.na(mx_ws$production))
 mx_ws <- mx_ws[-which(is.na(mx_ws$production)),]
 
@@ -87,6 +135,9 @@ sp_ws_democontrol <- lm(sp_ws$production~
 
 summary(sp_ws_democontrol)
 sp_ws$production_democontrol <- residuals(sp_ws_democontrol)
+
+# controlar con la edad porque no son lineales, probar ese modelo
+# Hacer un modelo que incluya tenga la edad dentro
 
 #Plot the new controlled dataset
 ggplot(sp_ws, aes(x = age, y = production_democontrol)) + 
@@ -119,58 +170,12 @@ ggplot(sp_ws, aes(x = age, y = production_democontrol2)) +
 
 ```
 
-
-# Comparison on the intersection of items
 * Do the sumscores across the intersecting items look the same at the population level (correcting for demographics)?
 No hay diferencias entre la data sin control versus la data controlado por sexo (unica variable posible de controlar). Esto de una manera visual.
 
 
-# Comparison on the intersection of items
 
-QUESTION: Do the sumscores across the intersecting items look the same at the population level (correcting for demographics)?
-
-```{r}
-langs <- c("Spanish (European)", "Spanish (Mexican)", "Spanish (Peruvian)", "Spanish (Argentinian)")
-
-d_ws <- map_df(langs, function(x) get_instrument_data(language = x, 
-                                                      form = "WS", 
-                                                      administration_info = TRUE, 
-                                                      item_info = TRUE))
-```
-
-Find the overlapping unilemmas.
-
-For now, pull those unilemmas that are 1) in all languages, 2) only once in each language. 
-
-```{r}
-items <- map_df(langs, function(x) get_item_data(language = x, form = "WS"))
-
-intersection <- items |>
-  group_by(uni_lemma) |>
-  summarise(n_langs = length(unique(language)), 
-            n = n()) |>
-  filter(n_langs == 4, n == 4) |>
-  pull(uni_lemma)
-# 224 common items
-``` 
-
-Filter data and replot. 
-
-```{r}
-ms_ws <- d_ws |>
-  filter(uni_lemma %in% intersection) |>
-  group_by(child_id, language, age) |>
-  summarise(produces = sum(produces))
-
-ggplot(ms_ws, aes(x = age, y = produces)) + 
-  geom_jitter(width = .2, alpha = .2) + 
-  geom_smooth() + 
-  facet_wrap(~language)
-```
-
-
-
-# Comparison of developmental properties
+# Comparison of developmental properties 
 
 QUESTION: Do individual common items have similar psychometric / developmental properties?
 
@@ -192,6 +197,8 @@ ggplot(data = aoas) +
   facet_wrap(~language)
 ```
 
+De acuerdo al modelo predictivo el desarrollo de unilemas para cada una de las poblaciones estudiadas (dialectos del espanhol) es similar (controlado por edad; independiente de la edad).
+
 Calculate correlations between languages
 
 ```{r}
@@ -209,4 +216,10 @@ Plot correlogram
 library(corrgram)
 corrgram(correl, type = "cor", panel = panel.cor)
 ```
+
+El mas parecido es el espanhol argentino con el peruano y los menos parecido es el espanhol mexicano con el peruano.
+
+#  What are the properties of items with the same unilemma but different item definitions?
+
+
 
